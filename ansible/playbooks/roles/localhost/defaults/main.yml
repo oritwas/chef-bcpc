@@ -1,0 +1,220 @@
+###############################################################################
+# misc
+###############################################################################
+
+# the root of the source tree
+root_dir: "{{ inventory_dir | dirname }}"
+
+# username and password used to access bare metal machines
+initial_ssh_user: ubuntu
+initial_ssh_pass: 53cr37
+
+# validate ssl cert (used by get_url)
+validate_certs: true
+
+###############################################################################
+# ansible
+###############################################################################
+
+ansible_python_interpreter: /usr/bin/env python3
+ansible_user: "{{ operator_username }}"
+ansible_ssh_common_args: >
+  -o StrictHostKeyChecking=no
+  -o UserKnownHostsFile=/dev/null
+
+###############################################################################
+# additional_runlists
+###############################################################################
+
+#additional_runlists:
+#  node:
+#    - recipe[bcpc::default]
+#  bootstrap:
+#    - recipe[bcpc::default]
+
+###############################################################################
+# cloud
+###############################################################################
+
+cloud_ip: 10.65.0.254
+cloud_domain: bcpc.example.com
+cloud_infrastructure_domain: "{{ cloud_domain }}"
+cloud_fqdn: "openstack.{{ cloud_domain }}"
+cloud_region: "{{ chef_environment['name'] }}"
+
+cloud_vars: "{{ {} | combine(
+                      {
+                        'chef': {
+                          'environment': chef_environment,
+                          'databags': chef_databags,
+                          'roles': chef_roles
+                        }
+                      },
+                      {
+                        'cloud': {
+                          'ip': cloud_ip,
+                          'domain': cloud_domain,
+                          'fqdn': cloud_fqdn,
+                          'region': cloud_region
+                        }
+                      }
+                    )
+            }}"
+
+###############################################################################
+# cloud images
+###############################################################################
+
+cloud_images:
+  - file_asset: cirros
+    type: qcow2
+
+all_cloud_images: "{{ cloud_images + additional_cloud_images | default([]) }}"
+
+###############################################################################
+# operator
+###############################################################################
+
+# cloud operator (os admin user)
+# this is the user that will be added to each node in the cluster and given
+# admin privileges
+operator_username: operations
+operator_group: operators
+
+###############################################################################
+# dns servers
+###############################################################################
+
+# list of external dns servers
+dns:
+  servers:
+    - 8.8.8.8
+    - 8.8.4.4
+
+###############################################################################
+# ntp servers
+###############################################################################
+
+# list of external ntp servers
+ntp:
+  servers:
+    - time1.google.com
+    - time2.google.com
+
+###############################################################################
+# local_proxy settings
+###############################################################################
+
+# configures a locally running http/https proxy service to handle multiple
+# proxy endpoints.
+
+local_proxy:
+  enabled: false
+  environment:
+    http: http://proxy.example.com
+    https: http://proxy.example.com
+  config:
+    listen: 127.0.0.1
+    port: 8888
+    upstream:
+      - otherproxy.example.com ".google.com"
+      - proxy.example.com # default proxy
+
+###############################################################################
+# chef
+###############################################################################
+
+chef_client:
+  config: {}
+
+chef_extra_cookbooks:
+  - file_asset: logrotate
+
+# all chef extra cookbooks
+all_chef_extra_cookbooks: "{{ chef_extra_cookbooks +
+                              additional_chef_extra_cookbooks | default([]) }}"
+
+###############################################################################
+# web server file assets
+###############################################################################
+
+web_server_assets:
+  - file_asset: cirros
+  - file_asset: etcd
+  - file_asset: calicoctl
+  - file_asset: consul
+  - file_asset: etcd3gw
+
+# all web server file assets
+all_web_server_assets: "{{ web_server_assets +
+                            additional_web_server_assets | default([]) }}"
+
+###############################################################################
+# external files (to be downloaded)
+###############################################################################
+
+assets_download_dir: "{{ root_dir }}/assets"
+
+assets_files:
+  - name: cirros
+    url: http://download.cirros-cloud.net/0.4.0/cirros-0.4.0-x86_64-disk.img
+    checksum: sha256:a8dd75ecffd4cdd96072d60c2237b448e0c8b2bc94d57f10fdbc8c481d9005b8
+    filename: cirros-0.4.0-x86_64-disk.img
+
+  - name: etcd
+    url: https://github.com/etcd-io/etcd/releases/download/v3.3.10/etcd-v3.3.10-linux-amd64.tar.gz
+    checksum: sha256:1620a59150ec0a0124a65540e23891243feb2d9a628092fb1edcc23974724a45
+    filename: etcd-v3.3.10-linux-amd64.tar.gz
+
+  - name: calicoctl
+    url: https://github.com/projectcalico/calicoctl/releases/download/v3.6.0/calicoctl-linux-amd64
+    checksum: sha256:b17659ca43f8812c6bea3fe30135c1d44857a756b13ed49c83895e74e2761359
+    filename: calicoctl
+
+  - name: consul
+    url: https://releases.hashicorp.com/consul/1.4.0/consul_1.4.0_linux_amd64.zip
+    checksum: sha256:41f8c3d63a18ef4e51372522c1e052618cdfcffa3d9f02dba0b50820e8279824
+    filename: consul_1.4.0_linux_amd64.zip
+
+  - name: chef_client
+    url: https://packages.chef.io/files/stable/chef/14.13.11/ubuntu/18.04/chef_14.13.11-1_amd64.deb
+    checksum: sha256:9ddcd5ceef19c95ecc1f34bef080c23d9cb42ae8ebc69fd41dcf1c768a6a708f
+    filename: chef_14.13.11-1_amd64.deb
+
+  - name: chef_server
+    url: https://packages.chef.io/files/stable/chef-server/12.17.33/ubuntu/16.04/chef-server-core_12.17.33-1_amd64.deb
+    checksum: sha256:2800962092ead67747ed2cd2087b0e254eb5e1a1b169cdc162c384598e4caed5
+    filename: chef-server-core_12.17.33-1_amd64.deb
+
+  - name: logrotate
+    url: https://supermarket.chef.io/cookbooks/logrotate/versions/2.2.0/download
+    checksum: sha256:f9385a488ec0ee02bfd680ac5aac012000006e4168f97bbf06b5b28373a1d1aa
+    filename: logrotate-2.2.0.tar.gz
+
+  - name: etcd3gw
+    url: https://files.pythonhosted.org/packages/08/02/63d5eb103943ce18c38dd1b11a2d63e6ff7260d44067458e7faa092c2b9e/etcd3gw-0.2.4.tar.gz
+    checksum: sha256:397a97a6089a996696e4a45ba1a6c1920faa494f0412750dc090d546249fd243
+    filename: etcd3gw-0.2.4.tar.gz
+
+# all file assets
+all_file_assets: "{{ assets_files + additional_assets_files | default([]) }}"
+
+###############################################################################
+# virtualbox
+###############################################################################
+
+virtualbox:
+  nat_ip: 10.0.2.15
+
+###############################################################################
+# host aggregates
+###############################################################################
+
+host_aggregates: []
+
+###############################################################################
+# networking
+###############################################################################
+
+networking:
+  mtu: 1500
